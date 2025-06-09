@@ -1,0 +1,572 @@
+**************************************************************
+C code:
+	f = (g + h) - (i + j);
+
+Mapping of variables to registers: 
+f --> x19, g --> x20, h --> x21, i --> x22, j --> x23 
+
+
+Compiled RISC-V code:
+addi x20 x0 10
+addi x21 x0 15
+addi x22 x0 4
+addi x23 x0 7
+add x5 x20 x21
+add x6 x22 x23
+sub x19 x5 x6
+
+
+**************************************************************
+To add immediately 
+addi x22, x22, 4
+
+
+**************************************************************
+This can also be used as a nop
+addi x0, x0, 0
+
+
+**************************************************************
+Simple representation of i++
+addi x19, x19, 1
+add x20, x19, x0
+
+
+**************************************************************
+Load register t0 with a value
+li t0, 0x4A
+Copy contents of register t0 to register t1
+mv t1, t0
+
+
+**************************************************************
+Immediate values that don't fit inside 12bits can be loaded with addi
+addi a0, a5, 2048
+To assign large numbers, use multiple instructions. Ex: to store 4005 in a5, use: 
+addi a5 x0 1000
+slli a5 a5 2
+addi a5 a5 5
+Best is to use li, which takes care of both small and large numbers
+
+
+**************************************************************
+SLT --> signed comparsion and SLTU --> unsigned comparsion
+li x5, 39
+li x3, 57
+slt x1, x5, x3 
+
+li a0, -4
+li a1,  3 
+slt a2, a0, a1	
+sltu a3, a0, a1
+
+**************************************************************
+SGTZ: Set If Greater Than Zero
+SLTZ: Set If Less Than Zero
+SNEZ: Set If Not Equal to Zero
+
+li a0, 3		 	
+li a1, -2	 	
+sltz a2, a0	 	
+sltz a3, a1		
+sgtz a4, a0		
+sgtz a5, a1		
+
+li a1, 0
+snez a6, a0
+snez a7, a1
+
+*************************************************************
+
+LUI and AUIPC are typically not used by human programmers! They are used by assemblers to implement complex operations
+
+* lui ---> load upper immediate (Copies the immediate value to upper 20 bits of rd. Lower 12 bits are reset to zero. LUI is usually followed by addi to load lower 12 bits)
+auipc ---> add upper immediate to pc
+
+lui x5, 0x11000 
+
+**************************************************************
+RISC-V assembly program to add 409932 + 409823 (without li)
+lui t0 , 100               
+addi t0 , t0 , 332     
+lui t1 , 100             
+addi t1 , t1 , 223    
+add t2 , t0 , t1
+
+***************************************************************
+Alternative code using “li”
+li t0 , 409932 
+li t1 , 409823 
+add t2 , t0 , t1 
+
+*To get the pc value
+auipc x5, 0
+
+*************************************************************
+mul	    Multiply (low 32 bits of signed × signed)
+mulh	Multiply High (high 32 bits of signed × signed)
+li a0, 65537	
+li a1, 65537	
+mul a2, a0, a1
+mulh a3, a0, a1
+
+Signed multiplication, lower 32 bits of the 64-bit result
+65537 × 65537 = 4295229441
+In hex: 65537 = 0x00010001
+65537^2 = 0x000100020001
+
+**************************************************************
+li a0, 2147483648
+li a1, 3221225472	 
+mul a3, a0, a1      #a3 gets lower 32 bits of 0x2000000000000000    
+mulhu a4, a0, a1	#a4 gets upper 32 bits of 0x6000000000000000	 
+mulhsu a5, a0, a1   #a5 gets upper 32 bits of 0xA000000000000000
+
+**************************************************************
+div	    Signed Integer Division
+divu	Unsigned Integer Division
+rem	    Signed Remainder
+remu	Unsigned Remainder
+
+li a0, 2147483648		 
+li a1, 1073741824 		 
+div a2, a0, a1 			 
+divu a3, a0, a1			
+li a0, 2147483649		
+li a4, 2				
+rem a5, a0, a4 			
+remu a6, a0, a4 
+
+
+**************************************************************
+Program to calculate volume of a sphere
+li a0 5   #radius in a0
+li a2 4   
+li a3 3
+li a4 3   #value of pi taken to be 3
+ 
+mul a1 a0 a0
+mul a1 a1 a0
+mul a1 a1 a4
+mul a1 a1 a2
+div a1 a1 a3
+
+
+**************************************************************
+Is the following code correct??
+sub x5, x6, 10(x7)
+
+No. In RISC-V, only load and store instructions can access the memory directly. For all other instructions, all their operands have to be register values.
+ld x9, 12(x7)
+sub x5, x6, x9 
+
+
+**************************************************************
+Sample code to  show load and store
+.data
+value: 	.word 0x12345678
+.text
+la x10, value
+lw x11, 0(x10)
+lh x12, 0(x10)
+lh x13, 2(x10)
+lb x14, 0(x10)
+lb x15, 1(x10)
+lb x16, 2(x10)
+lb x17, 3(x10)
+lb x18, 4(x10)
+
+*************************************
+********** 
+
+li a0, 15		     # a0 <- 0x0000000F	
+li a1, -16		     # a1 <- 0xFFFFFFF0
+blt a0, a1, new	     # a0 > a1, no branching
+beq x0, x0, exit	 # unconditional branch
+new:
+	add a0,a0, a1	 # not executed
+exit:     nop
+
+*********************************************************************
+li a0, 15	      # a0 <- 0x0000000F	
+li a1, -16	         # a1 <- 0xFFFFFFF0
+bge a0, a1, new	     # a0 > a1, branch taken
+beq x0, x0, exit	 # unconditional branch
+new:
+	add a0, a0, a1	 # a0 <- 0xFFFFFFFF
+exit: nop
+
+**********************************************************************
+Explain why is it important to specify exit in assembley code
+li x13 5
+li x14 6
+li x11 12
+li x12 13
+
+beq x13, x14, SUM
+beq x0 x0 EXIT
+SUM:
+	add x10, x11, x12
+EXIT: nop
+
+
+**********************************************************************
+C code:
+	if (i==j) f = g+h; else f = g-h;
+Write RISC-V code for above c code!
+
+**********************************************************************
+implementation of case statements 
+li a0, 6
+li a2, 2  
+li a3, 3 
+li a4, 6 
+beq a0, a2, L1  #case 2
+beq a0, a3, L2  #case 3
+beq a0, a4, L3  # case 6
+j default 
+L1:  
+	li a1, 5    #y=5
+	j exit       #break
+L2:  
+	li a1, 7    
+	j exit 
+L3:  
+	li a1, 9 
+        j exit
+default: 
+	li a1, 100 
+exit:
+         nop
+		 
+		 
+
+***********************************************************************
+Advanced code to check prime number
+li a0, 3              # a1 = 0 (not prime by default)
+li t0, 2              # t0 = 2 (start checking from 2)
+li t1, 1              # t1 = 1 (comparison constant)
+
+ble a0, t1, end       # if a0 <= 1, not prime → jump to end
+li a1, 1              # assume prime initially
+
+loop:
+    mul t2, t0, t0        # t2 = i * i
+    bgt t2, a0, end       # if i*i > n, break loop (n is prime)
+
+    rem t3, a0, t0        # t3 = n % i
+    beq t3, x0, not_prime # if n % i == 0, not prime
+
+    addi t0, t0, 1        # i = i + 1
+    j loop
+
+not_prime:
+    li a1, 0              # set result to not prime
+
+end: nop
+    # a1 has the result (1 = prime, 0 = not prime)
+
+This RISC-V code checks whether a given number stored in register a0 is a prime number. The basic idea follows the standard algorithm used in high-level languages like C,
+where a number is considered prime if it is greater than 1 and not divisible by any integer from 2 up to the square root of that number. The code begins by assuming the
+number is not prime (setting a1 = 0), and then checks for the special case where the number is less than or equal to 1, in which case it immediately exits since such
+numbers are not prime. If the number is greater than 1, it temporarily assumes the number might be prime (setting a1 = 1) and enters a loop.
+Inside the loop, the code checks whether the loop counter i (starting from 2) squared is greater than the input number—if so, it exits the loop since no divisors 
+have been found. If not, it calculates the remainder of the number divided by i. If the remainder is zero, the number is divisible by i and thus not prime; 
+the program sets a1 back to 0 and exits. If no such divisor is found throughout the loop, the value in a1 remains 1, indicating the number is prime.
+
+
+
+********
+sll	--> Shift Left Logical (fills with 0s)
+srl	--> Shift Right Logical (fills with 0s)
+sra	--> Shift Right Arithmetic (sign-extends MSB)
+
+li a0, 0x80000000
+li a1, 1
+sll a2, a0, a1			 
+srl a3, a0, a1
+sra a4, a0, a1
+
+
+*********
+Left-shift by 2 = Multiplication by 4 
+li a0, 64
+li a1, 2
+sll a2, a0, a1
+
+Right-shift by 2 = Division by 4 
+li a0, 64
+li a1, 2
+sra a2, a0, a1
+
+
+********
+Logical Operations
+
+li x10 44
+li x11 69
+and x8 x10 x11
+or x9 x10 x11
+xor x18 x10 x11
+
+
+********
+li a0, 6		 # a0 <- 0110 (in binary)
+li a1, 10		 # a1 <- 1010 (in binary)
+and a2, a0, a1	 # a2 <- 0010 (in binary) or 2 (in decimal)
+or a3, a0, a1	 # a3 <- 1110 (in binary) or 14 (in decimal)
+not a4, a0	     # a4 <- 0xFFFFFFF9 (1’s complement of 6 in 32bits)
+neg a5, a0       # a5 <- 0xFFFFFFFA (2’s complement of 6 in 32bits)
+
+
+*********
+Set the 16th bit to 1
+li a1 1
+slli a2 a1 15
+or a0 a0 a2
+
+******************************************************
+********** Copy operation
+
+.data
+source: .word 11, 22, 33, 44, 55, 66, 77, 88, 99
+
+.text
+.globl main
+
+main:
+	li t1 , 0 	# counter (t1) = 0
+	li t2 , 10 	# number of iterations
+    la a1, source
+loop:
+	lw t0 , 0( a1)  # load an element from the source array
+	sw t0 , 0( a2)  # store an element in the destination array
+	addi a1 , a1 , 7 # get address of next element : src array
+	addi a2 , a2 , 4 # do the same for destination array
+	addi t1 , t1 , 1 # increment the counter
+	bne t1 , t2 , loop # loop back
+
+
+.data
+source: .word 11, 22, 33, 44, 55, 66, 77, 88, 99
+
+.text
+.globl main
+main:
+    la a1, source     # load address of source array
+
+    li t3, 5          # pretend this is a "random" index (between 0–8)
+    slli t3, t3, 2    # convert word index to byte offset (×4)
+    add t4, a1, t3    # compute address: a1 + t3
+    lw t0, 0(t4)      # load the selected word into t0
+
+    # Now t0 contains source[7] = 88 in this case
+
+
+******** Functions
+.main:
+	li a0, 3
+	li a1, 5
+	jal x1, func
+	addi a2, a0, 10
+    beq x0, x0, exit
+
+func:
+	add a0, a0, a1
+	ret
+
+exit: nop
+
+******************
+li a0 22
+li a1 29
+li a2 35
+li a3 44
+
+main:
+	addi sp, sp, -8		    # free space on the stack
+	sw s1, 4(sp)		# store register
+	sw s0, 0(sp)			# store register
+	jal _fn
+_res:
+	lw s0, 0(sp)		# restore s0
+	lw s1, 4(sp)		# restore sq
+	addi sp, sp, 8		# free space
+	j done
+_fn:
+	add t0, a0, a1		# (g+h)
+	add t1, a2, a3		# (i+j)
+	sub a0, t0, t1		# (g+h) – (i+j)
+	jalr x0 x1 0
+done:
+	nop
+
+******************* Power of a number.text
+.globl main
+
+main:
+    li a0, 2          # base = 2
+    li a1, 5          # exponent = 5
+
+    li t0, 1          # result = 1 (t0 will hold the final result)
+    li t1, 0          # counter i = 0
+
+loop:
+    beq t1, a1, end   # if i == exponent, exit loop
+    mul t0, t0, a0    # result *= base
+    addi t1, t1, 1    # i++
+    j loop            # repeat
+
+end:
+    mv a2, t0         # move final result into a2 for observation
+
+
+
+****************** Factorial
+.text
+.globl main
+
+main:
+    li a0, 6          # a0 = 5 → input number n
+    li t0, 1          # t0 = 1 → result accumulator
+    li t1, 1          # t1 = 1 → loop counter (i)
+
+loop:
+    bgt t1, a0, end   # if i > n, exit loop
+    mul t0, t0, t1    # result *= i
+    addi t1, t1, 1    # i++
+    j loop
+
+end:
+    mv a1, t0         # move result into a1
+	
+*********************************************************************
+
+Int main()
+{
+	int a, b, c d;
+	int e = func(a, b, c, d);
+	return 0;
+}
+
+Int func(int g, int h, int i, int j)
+{
+
+	return (g+h) – (i+j);
+}
+
+********************RISC code
+
+li a0 22
+li a1 29
+li a2 35
+li a3 44
+
+main:
+	addi sp, sp, -8		    # free space on the stack
+	sw s1, 4(sp)		# store register
+	sw s0, 0(sp)			# store register
+	jal _fn
+_res:
+	lw s0, 0(sp)		# restore s0
+	lw s1, 4(sp)		# restore sq
+	addi sp, sp, 8		# free space
+	j done
+_fn:
+	add t0, a0, a1		# (g+h)
+	add t1, a2, a3		# (i+j)
+	sub a0, t0, t1		# (g+h) – (i+j)
+	jalr x0 x1 0
+done:
+	nop
+	
+This RISC-V code demonstrates how function calls and returns are handled using the jal (Jump and Link) and jalr (Jump and Link Register) instructions.
+Initially, four values are loaded into the argument registers a0–a3. The main section begins by saving the s0 and s1 registers onto the stack and then uses
+jal _fn to call the function _fn. The jal instruction jumps to the function while automatically saving the return address (the next instruction's address)
+into the ra (x1) register. Inside the _fn function, a simple arithmetic operation is performed: it computes (a0 + a1) - (a2 + a3) and stores the result back
+into a0. To return from the function, jalr x0, x1, 0 is used. This instruction jumps to the address stored in x1 (which is ra from the jal earlier), effectively
+returning control back to the caller right after the jal call. Finally, the stack is restored, and the program ends. This shows how jal and jalr work together
+to enable function calls and returns in RISC-V assembly.
+*****************************
+
+C-code:
+
+int main(){
+
+	int a, b;
+	b = square(a);
+
+	return 0;
+}
+
+int square(int num){
+
+	return num * num;
+}
+*********************
+
+main:
+    addi sp, sp, -16
+    sw ra, 12(sp)
+    sw s0, 8(sp)
+    addi s0, sp, 16
+
+    li a0, 5         # pass argument in a0
+    jal square       # call square(x)
+
+    sw a0, -4(s0)    # store result (optional)
+
+    li a5, 0
+    mv a0, a5        # return 0
+
+    lw ra, 12(sp)
+    lw s0, 8(sp)
+    addi sp, sp, 16
+    jr ra
+
+square:
+    addi sp, sp, -16
+    sw ra, 12(sp)
+    sw s0, 8(sp)
+    addi s0, sp, 16
+
+    mul a0, a0, a0   # square input in a0
+
+    lw ra, 12(sp)
+    lw s0, 8(sp)
+    addi sp, sp, 16
+    jr ra
+
+This RISC-V assembly program demonstrates a complete function call and return mechanism using the stack, proper register saving, and calling conventions.
+The main function begins by creating a stack frame: it adjusts the stack pointer (sp) by subtracting 16 to allocate space, then saves the return address
+(ra) and frame pointer (s0) into the stack at offsets 12 and 8, respectively. It then sets up the frame pointer s0 by assigning it sp + 16, marking the top of the current frame.
+Next, the program loads the immediate value 5 into register a0, which is used for argument passing in RISC-V. The instruction jal square jumps to the square function, saving
+the return address (the address of the next instruction in main) into ra. This is the key mechanism that enables function calls and ensures the program can return to main
+after executing square.
+Inside the square function, a new stack frame is also created using the same procedure: space is allocated, and ra and s0 are saved. The value in a0—which was passed
+from main—is then squared using the mul instruction (a0 * a0), and the result is stored back in a0 to be returned. The function then restores the saved ra and s0 values
+from the stack, deallocates the 16-byte frame by adjusting sp, and returns to the caller using jr ra, which jumps to the address held in the return address register.
+Back in main, the result from square (now in a0) is optionally stored at an offset from s0 (specifically -4(s0)), showing how return values can be saved if needed. After
+that, the program sets a5 to zero and moves this value into a0, following the convention that main should return 0 to indicate successful execution. Finally, the stack
+is cleaned up by restoring ra and s0, and the program returns using jr ra.
+
+****************************
+Instruction Encoding for: A[30] = h + A[30] + 1;
+
+lw x9 120(x10)
+imm (12b) rs1 (5b) fun3 (3b) rd (5b) opcode (7b)
+000001111000 01010 010 01001 0000011
+
+
+add x9 x21 x9
+func7 rs2 rs1 fun3 rd opcode
+0000000 01001 10101 01001 b51
+
+
+addi x9 x9 1
+000000000001 01001 000 01001 0010011
+
+
+sw x9 120(x10)
+imm[11:5] rd rs1 fun3 imm[4:0] opcode
+0000011 01001 01010 010 11000 0100011
